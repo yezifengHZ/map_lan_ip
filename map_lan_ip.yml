@@ -1,0 +1,14 @@
+interval: 60
+cidrs:
+    # - 10.0.0.0/8
+    # - 172.16.0.0/12
+    # - 192.168.0.0/16
+    - 192.168.20.0/24
+ports:
+    - port: 9800
+      type: node_exporter
+    - port: 9605
+      type: fping
+pingaddr: www.baidu.com
+target: targets.yml
+logfile: /var/log/map_lan_ip.log
