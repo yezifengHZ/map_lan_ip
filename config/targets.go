@@ -106,3 +106,67 @@ func UpdateTargets(file string, newTargets PromethuesTargets) error {
 
 	return nil
 }
+
+func UpdateNodeExporterTargets(file string, newTargets PromethuesTargets, port []Ports) error {
+	targetType := "node_exporter"
+	nodeExpPorts := map[int]bool{}
+	for _, p := range port {
+		if p.Type == targetType {
+			nodeExpPorts[p.Prot] = true
+		}
+	}
+	targets := newTargets.Targets
+	nodeTargets := []string{}
+	for _, t := range targets {
+		hostport := strings.Split(t, ":")
+		if len(hostport) == 2 {
+			p, _ := strconv.Atoi(hostport[1])
+			if nodeExpPorts[p] {
+				nodeTargets = append(nodeTargets, t)
+			}
+		}
+	}
+
+	newNodeExpTargets := PromethuesTargets{Targets: nodeTargets}
+
+	nodeExpFile := strings.Replace(file, ".yml", "_"+targetType+".yml", 1)
+
+	err := UpdateTargets(nodeExpFile, newNodeExpTargets)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UpdateFpingTargets(file string, newTargets PromethuesTargets, port []Ports) error {
+	targetType := "fping"
+	fpingPorts := map[int]bool{}
+	for _, p := range port {
+		if p.Type == targetType {
+			fpingPorts[p.Prot] = true
+		}
+	}
+	targets := newTargets.Targets
+	fpingTargets := []string{}
+	for _, t := range targets {
+		hostport := strings.Split(t, ":")
+		if len(hostport) == 2 {
+			p, _ := strconv.Atoi(hostport[1])
+			if fpingPorts[p] {
+				fpingTargets = append(fpingTargets, t)
+			}
+		}
+	}
+
+	newFpingTargets := PromethuesTargets{Targets: fpingTargets, Labels: PrometheusLabels{PingAddr: newTargets.Labels.PingAddr}}
+
+	fpingFile := strings.Replace(file, ".yml", "_"+targetType+".yml", 1)
+
+	err := UpdateTargets(fpingFile, newFpingTargets)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

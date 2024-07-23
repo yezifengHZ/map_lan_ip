@@ -30,9 +30,16 @@ func MapLanIp() {
 
 		// 更新Targets.yml
 		newTargets := config.PromethuesTargets{Targets: aliveAddress, Labels: config.PrometheusLabels{PingAddr: c.PingAddr}}
-		err := config.UpdateTargets(c.Target, newTargets)
+		// err := config.UpdateTargets(c.Target, newTargets)
+		err := config.UpdateNodeExporterTargets(c.Target, newTargets, c.Ports)
 		if err != nil {
-			log.Fatal("更新 PromethuesTargets 失败:", err.Error())
+			log.Fatal("更新 NodeExporterTargets 失败:", err.Error())
+			return
+		}
+
+		err = config.UpdateFpingTargets(c.Target, newTargets, c.Ports)
+		if err != nil {
+			log.Fatal("更新 FpingTargets 失败:", err.Error())
 			return
 		}
 
