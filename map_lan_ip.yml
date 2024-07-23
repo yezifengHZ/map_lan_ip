@@ -11,4 +11,4 @@ ports:
       type: fping
 pingaddr: www.baidu.com
 target: targets.yml
-logfile: /var/log/map_lan_ip.log
+logfile: map_lan_ip.log
