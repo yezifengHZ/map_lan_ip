@@ -29,17 +29,17 @@ func ReadTargets(file string) (PromethuesTargets, error) {
 		return PromethuesTargets{}, err
 	}
 
-	var targets PromethuesTargets
+	var targets []PromethuesTargets
 	err = yaml.Unmarshal(data, &targets)
 	if err != nil {
 		return PromethuesTargets{}, err
 	}
 
-	return targets, nil
+	return targets[0], nil
 }
 
-func WriteTargets(file string, targets PromethuesTargets) error {
-	data, err := yaml.Marshal(&targets)
+func WriteTargets(file string, targetsList []PromethuesTargets) error {
+	data, err := yaml.Marshal(&targetsList)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func UpdateTargets(file string, newTargets PromethuesTargets) error {
 
 	// 更新配置
 	if changed {
-		err = WriteTargets(file, data)
+		err = WriteTargets(file, []PromethuesTargets{data})
 		if err != nil {
 			return err
 		}

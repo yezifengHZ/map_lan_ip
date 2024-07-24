@@ -1,0 +1,18 @@
+[Unit]
+Description=Map Lan IP
+After=network.target
+Wants=network.target
+
+[Service]
+WorkingDirectory=/opt/map_lan_ip
+ExecStart=/bin/bash -c '/opt/map_lan_ip/map_lan_ip'
+Restart=on-abnormal
+RestartSec=5s
+KillMode=mixed
+
+StandardOutput=null
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
+
