@@ -52,7 +52,7 @@ func WriteTargets(file string, targetsList []PromethuesTargets) error {
 	return nil
 }
 
-func UpdateTargets(file string, newTargets PromethuesTargets) error {
+func UpdateTargets(file string, newTargets PromethuesTargets, usePorts map[int]bool) error {
 	// 读取现有配置
 	data, err := ReadTargets(file)
 	if err != nil {
@@ -74,6 +74,11 @@ func UpdateTargets(file string, newTargets PromethuesTargets) error {
 		if len(hostport) == 2 {
 			host := hostport[0]
 			port, _ := strconv.Atoi(hostport[1])
+			if !usePorts[port] {
+				log.Println("监控地址端口已改变,移除监控项:", addr)
+				changed = true
+				continue
+			}
 			aliveAddress := scan.PortScan([]string{host}, []int{port}, scan.Timeout)
 			if len(aliveAddress) == 0 {
 				log.Println("监控地址端口未发现,移除监控项:", addr)
@@ -131,7 +136,7 @@ func UpdateNodeExporterTargets(file string, newTargets PromethuesTargets, port [
 
 	nodeExpFile := strings.Replace(file, ".yml", "_"+targetType+".yml", 1)
 
-	err := UpdateTargets(nodeExpFile, newNodeExpTargets)
+	err := UpdateTargets(nodeExpFile, newNodeExpTargets, nodeExpPorts)
 	if err != nil {
 		return err
 	}
@@ -163,7 +168,7 @@ func UpdateFpingTargets(file string, newTargets PromethuesTargets, port []Ports)
 
 	fpingFile := strings.Replace(file, ".yml", "_"+targetType+".yml", 1)
 
-	err := UpdateTargets(fpingFile, newFpingTargets)
+	err := UpdateTargets(fpingFile, newFpingTargets, fpingPorts)
 	if err != nil {
 		return err
 	}
