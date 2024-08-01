@@ -39,7 +39,11 @@ ports:
       type: fping
 
 # fping 的 ping 目标地址
-pingaddr: www.baidu.com
+pingaddr:
+    - www.baidu.com
+    - 223.5.5.5
+    - www.qq.com
+    - 119.29.29.29
 
 # Prometheus 动态加载的文件路径，最终的文件名称根据端口类型分为 targets_node_exporter.yml 和 targets_fping.yml
 target: /root/promethues/prometheus-2.53.1.linux-amd64/targets.yml
