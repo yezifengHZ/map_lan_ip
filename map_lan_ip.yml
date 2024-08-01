@@ -9,6 +9,10 @@ ports:
       type: node_exporter
     - port: 9605
       type: fping
-pingaddr: www.baidu.com
+pingaddr:
+    - www.baidu.com
+    - 223.5.5.5
+    - www.qq.com
+    - 119.29.29.29
 target: targets.yml
 logfile: map_lan_ip.log

@@ -13,7 +13,7 @@ type Config struct {
 	Interval int      `yaml:"interval"` // 查询间隔
 	CIDRs    []string `yaml:"cidrs"`    // 查询网段
 	Ports    []Ports  `yaml:"ports"`    // 端口
-	PingAddr string   `yaml:"pingaddr"` // fping的目标地址
+	PingAddr []string `yaml:"pingaddr"` // fping的目标地址
 	Target   string   `yaml:"target"`   // Prometheus 动态加载fd文件路径
 	LogFile  string   `yaml:"logfile"`  // 日志文件保存地址
 }
@@ -28,9 +28,9 @@ func init() {
 	if os.IsNotExist(err) {
 		config := Config{
 			Interval: 60,
-			CIDRs:    []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"},
+			CIDRs:    []string{"192.168.0.0/16"},
 			Ports:    []Ports{{Prot: 9800, Type: "node_exporter"}, {Prot: 9605, Type: "fping"}},
-			PingAddr: "www.baidu.com",
+			PingAddr: []string{"www.baidu.com"},
 			Target:   "targets.yml",
 			LogFile:  "map_lan_ip.log",
 		}

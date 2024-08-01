@@ -20,22 +20,22 @@ type PrometheusLabels struct {
 	PingAddr string `yaml:"pingaddr"` // fping目标地址
 }
 
-func ReadTargets(file string) (PromethuesTargets, error) {
+func ReadTargets(file string) ([]PromethuesTargets, error) {
 	data, err := os.ReadFile(file)
 	if os.IsNotExist(err) {
-		return PromethuesTargets{}, nil
+		return nil, nil
 	}
 	if err != nil {
-		return PromethuesTargets{}, err
+		return nil, err
 	}
 
 	var targets []PromethuesTargets
 	err = yaml.Unmarshal(data, &targets)
 	if err != nil {
-		return PromethuesTargets{}, err
+		return nil, err
 	}
 
-	return targets[0], nil
+	return targets, nil
 }
 
 func WriteTargets(file string, targetsList []PromethuesTargets) error {
@@ -52,7 +52,7 @@ func WriteTargets(file string, targetsList []PromethuesTargets) error {
 	return nil
 }
 
-func UpdateTargets(file string, newTargets PromethuesTargets, usePorts map[int]bool) error {
+func UpdateTargets(file string, newTargets []PromethuesTargets, usePorts map[int]bool) error {
 	// 读取现有配置
 	data, err := ReadTargets(file)
 	if err != nil {
@@ -62,48 +62,64 @@ func UpdateTargets(file string, newTargets PromethuesTargets, usePorts map[int]b
 	changed := false
 
 	// 扫描未发现的Targets
-	newDataTargets := []string{}
-	MapNewTargets := utils.ConvertStrSliceToMap(newTargets.Targets)
-	for _, addr := range data.Targets {
-		if utils.ContainsInMap(MapNewTargets, addr) {
-			newDataTargets = append(newDataTargets, addr)
-			continue
-		}
-		// 二次确认Targets是否存在
-		hostport := strings.Split(addr, ":")
-		if len(hostport) == 2 {
-			host := hostport[0]
-			port, _ := strconv.Atoi(hostport[1])
-			if !usePorts[port] {
-				log.Println("监控地址端口已改变,移除监控项:", addr)
-				changed = true
-				continue
-			}
-			aliveAddress := scan.PortScan([]string{host}, []int{port}, scan.Timeout)
-			if len(aliveAddress) == 0 {
-				log.Println("监控地址端口未发现,移除监控项:", addr)
-				changed = true
-				continue
-			}
-		}
-		newDataTargets = append(newDataTargets, addr)
+	newDataTargets := []PromethuesTargets{}
+	var MapNewTargets map[string]struct{}
+	MapNewTargetsPingaddr := map[string]bool{}
+	for _, t := range newTargets {
+		MapNewTargets = utils.ConvertStrSliceToMap(t.Targets)
+		MapNewTargetsPingaddr[t.Labels.PingAddr] = true
 	}
-	data.Targets = newDataTargets
+	for _, d := range data {
+		for _, addr := range d.Targets {
+			// pingaddr 不一致，忽略
+			if !MapNewTargetsPingaddr[d.Labels.PingAddr] {
+				log.Println("Ping目标地址已改变,移除监控项:", addr, "Ping目标地址:", d.Labels.PingAddr)
+				changed = true
+				continue
+			}
+			if utils.ContainsInMap(MapNewTargets, addr) {
+				newDataTargets = append(newDataTargets, PromethuesTargets{Targets: []string{addr}, Labels: PrometheusLabels{PingAddr: d.Labels.PingAddr}})
+				continue
+			}
+			// 二次确认Targets是否存在
+			hostport := strings.Split(addr, ":")
+			if len(hostport) == 2 {
+				host := hostport[0]
+				port, _ := strconv.Atoi(hostport[1])
+				if !usePorts[port] {
+					log.Println("监控地址端口已改变,移除监控项:", addr)
+					changed = true
+					continue
+				}
+				aliveAddress := scan.PortScan([]string{host}, []int{port}, scan.Timeout)
+				if len(aliveAddress) == 0 {
+					log.Println("监控地址端口未发现,移除监控项:", addr)
+					changed = true
+					continue
+				}
+			}
+			newDataTargets = append(newDataTargets, PromethuesTargets{Targets: []string{addr}, Labels: PrometheusLabels{PingAddr: d.Labels.PingAddr}})
+		}
+	}
 
 	// 新增Targets
-	MapData := utils.ConvertStrSliceToMap(data.Targets)
-	for _, addr := range newTargets.Targets {
-		if utils.ContainsInMap(MapData, addr) {
-			continue
-		}
-		data.Targets = append(data.Targets, addr)
-		changed = true
+	var MapData map[string]struct{}
+	for _, t := range newDataTargets {
+		MapData = utils.ConvertStrSliceToMap(t.Targets)
 	}
-	data.Labels.PingAddr = newTargets.Labels.PingAddr
+	for _, n := range newTargets {
+		for _, addr := range n.Targets {
+			if utils.ContainsInMap(MapData, addr) {
+				continue
+			}
+			newDataTargets = append(newDataTargets, PromethuesTargets{Targets: []string{addr}, Labels: PrometheusLabels{PingAddr: n.Labels.PingAddr}})
+			changed = true
+		}
+	}
 
 	// 更新配置
 	if changed {
-		err = WriteTargets(file, []PromethuesTargets{data})
+		err = WriteTargets(file, newDataTargets)
 		if err != nil {
 			return err
 		}
@@ -132,7 +148,7 @@ func UpdateNodeExporterTargets(file string, newTargets PromethuesTargets, port [
 		}
 	}
 
-	newNodeExpTargets := PromethuesTargets{Targets: nodeTargets}
+	newNodeExpTargets := []PromethuesTargets{{Targets: nodeTargets}}
 
 	nodeExpFile := strings.Replace(file, ".yml", "_"+targetType+".yml", 1)
 
@@ -144,7 +160,7 @@ func UpdateNodeExporterTargets(file string, newTargets PromethuesTargets, port [
 	return nil
 }
 
-func UpdateFpingTargets(file string, newTargets PromethuesTargets, port []Ports) error {
+func UpdateFpingTargets(file string, newTargets PromethuesTargets, port []Ports, pingTargets []string) error {
 	targetType := "fping"
 	fpingPorts := map[int]bool{}
 	for _, p := range port {
@@ -153,22 +169,22 @@ func UpdateFpingTargets(file string, newTargets PromethuesTargets, port []Ports)
 		}
 	}
 	targets := newTargets.Targets
-	fpingTargets := []string{}
+	fpingTargets := []PromethuesTargets{}
 	for _, t := range targets {
 		hostport := strings.Split(t, ":")
 		if len(hostport) == 2 {
 			p, _ := strconv.Atoi(hostport[1])
 			if fpingPorts[p] {
-				fpingTargets = append(fpingTargets, t)
+				for _, pingTarget := range pingTargets {
+					fpingTargets = append(fpingTargets, PromethuesTargets{Targets: []string{t}, Labels: PrometheusLabels{PingAddr: pingTarget}})
+				}
 			}
 		}
 	}
 
-	newFpingTargets := PromethuesTargets{Targets: fpingTargets, Labels: PrometheusLabels{PingAddr: newTargets.Labels.PingAddr}}
-
 	fpingFile := strings.Replace(file, ".yml", "_"+targetType+".yml", 1)
 
-	err := UpdateTargets(fpingFile, newFpingTargets, fpingPorts)
+	err := UpdateTargets(fpingFile, fpingTargets, fpingPorts)
 	if err != nil {
 		return err
 	}
